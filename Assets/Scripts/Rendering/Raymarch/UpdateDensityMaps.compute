@@ -1,0 +1,65 @@
+#pragma kernel UpdateDensityMaps
+
+#include "../../Simulation/Compute/Unified/UnifiedParticle.hlsl"
+
+// Textures
+RWTexture3D<float> FluidDensityMap;
+RWTexture3D<float> SandDensityMap;
+
+// Buffers
+StructuredBuffer<UnifiedParticle> Particles;
+
+// Parameters
+int NumParticles;
+int Resolution;
+float ParticleRadius;
+float DensityFalloff;
+float3 BoundsSize;
+float3 BoundsCenter;
+
+float CalculateDensityContribution(float3 samplePos, float3 particlePos)
+{
+    float3 diff = samplePos - particlePos;
+    float sqrDist = dot(diff, diff);
+    float sqrRadius = ParticleRadius * ParticleRadius;
+    
+    if (sqrDist > sqrRadius)
+        return 0;
+        
+    float t = 1 - sqrDist / sqrRadius;
+    return pow(t, DensityFalloff);
+}
+
+float3 WorldToVolumeSpace(float3 worldPos)
+{
+    float3 localPos = worldPos - (BoundsCenter - BoundsSize * 0.5);
+    return localPos / BoundsSize * Resolution;
+}
+
+[numthreads(8,8,8)]
+void UpdateDensityMaps(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= Resolution))
+        return;
+        
+    float3 volumePos = float3(id) + 0.5;
+    float3 worldPos = volumePos / Resolution * BoundsSize + (BoundsCenter - BoundsSize * 0.5);
+    
+    float fluidDensity = 0;
+    float sandDensity = 0;
+    
+    // Calculate density contribution from nearby particles
+    for (int i = 0; i < NumParticles; i++)
+    {
+        UnifiedParticle particle = Particles[i];
+        float contribution = CalculateDensityContribution(worldPos, particle.position);
+        
+        if (particle.type == 0) // Fluid
+            fluidDensity += contribution;
+        else // Sand
+            sandDensity += contribution;
+    }
+    
+    FluidDensityMap[id] = fluidDensity;
+    SandDensityMap[id] = sandDensity;
+}

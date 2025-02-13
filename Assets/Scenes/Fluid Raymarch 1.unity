@@ -216,113 +216,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 24.6, y: -113.559, z: 47.659}
---- !u!1 &271053315
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 271053318}
-  - component: {fileID: 271053319}
-  - component: {fileID: 271053323}
-  - component: {fileID: 271053322}
-  m_Layer: 0
-  m_Name: Simulation
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &271053318
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 271053315}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 15, y: 10, z: 8}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &271053319
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 271053315}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c8b3b79f98be3f34e8fefade4cef2ade, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  normalTimeScale: 1
-  slowTimeScale: 0.025
-  maxTimestepFPS: 60
-  iterationsPerFrame: 3
-  gravity: -10
-  smoothingRadius: 0.2
-  targetDensity: 630
-  pressureMultiplier: 288
-  nearPressureMultiplier: 2.25
-  viscosityStrength: 0.001
-  collisionDamping: 0.95
-  foamActive: 0
-  maxFoamParticleCount: 1000
-  trappedAirSpawnRate: 0
-  spawnRateFadeInTime: 1
-  spawnRateFadeStartTime: 0
-  trappedAirVelocityMinMax: {x: 0, y: 0}
-  foamKineticEnergyMinMax: {x: 0, y: 0}
-  bubbleBuoyancy: 0
-  sprayClassifyMaxNeighbours: 6
-  bubbleClassifyMinNeighbours: 20
-  bubbleScale: 0.8
-  bubbleChangeScaleSpeed: 1
-  renderToTex3D: 1
-  densityTextureRes: 150
-  compute: {fileID: 7200000, guid: 9443696acfd0ebe4fb503b56d952256c, type: 3}
-  spawner: {fileID: 271053323}
-  DensityMap: {fileID: 0}
---- !u!33 &271053322
-MeshFilter:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 271053315}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
---- !u!114 &271053323
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 271053315}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f99a384512b94654fbeb7c06c43f81ba, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  particleSpawnDensity: 600
-  initialVel:
-    x: 0
-    y: 0
-    z: 0
-  jitterStrength: 0.035
-  showSpawnBounds: 1
-  spawnRegions:
-  - centre: {x: -4, y: -1.42, z: 0}
-    size: 7
-    debugDisplayCol: {r: 1, g: 0.42878985, b: 0.15566039, a: 1}
-  debug_num_particles: 205379
-  debug_spawn_volume: 343
 --- !u!1 &811702636
 GameObject:
   m_ObjectHideFlags: 0
@@ -336,7 +229,6 @@ GameObject:
   - component: {fileID: 811702639}
   - component: {fileID: 811702638}
   - component: {fileID: 811702637}
-  - component: {fileID: 811702642}
   m_Layer: 0
   m_Name: Raymarching Camera
   m_TagString: MainCamera
@@ -390,9 +282,18 @@ MonoBehaviour:
     tileScale: 1
     tileDarkOffset: -0.35
     light: {fileID: 128587420}
-  sim: {fileID: 271053319}
+  unifiedSim: {fileID: 1615072073}
   cubeTransform: {fileID: 1949237118}
-  shader: {fileID: 4800000, guid: 557ee3bc7bd1ca242a49f3816e6025b5, type: 3}
+  fluidShader: {fileID: 4800000, guid: a0f51f9cc72c43a499b25ada7e2b7989, type: 3}
+  sandShader: {fileID: 4800000, guid: ca5bcbf1c97d4944f97d83bd60d435e5, type: 3}
+  densityMapCompute: {fileID: 7200000, guid: 1b881ba91d266f54fa4a73feff6e3c57, type: 3}
+  densityMapResolution: 128
+  particleRadius: 0.1
+  densityFalloff: 1
+  sandColor: {r: 0.76, g: 0.7, b: 0.5, a: 1}
+  sandSpecular: 0.2
+  sandRoughness: 0.8
+  grainScale: 50
 --- !u!81 &811702639
 AudioListener:
   m_ObjectHideFlags: 0
@@ -467,18 +368,99 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 4.682, y: 0, z: 0}
---- !u!114 &811702642
+--- !u!1 &1615072071
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1615072074}
+  - component: {fileID: 1615072073}
+  - component: {fileID: 1615072072}
+  m_Layer: 0
+  m_Name: UnifiedSim
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1615072072
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 811702636}
+  m_GameObject: {fileID: 1615072071}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f7af1b7fb9e8a0348bae6065ae9ae27a, type: 3}
+  m_Script: {fileID: 11500000, guid: f99a384512b94654fbeb7c06c43f81ba, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  particleSpawnDensity: 600
+  initialVel:
+    x: 0
+    y: 0
+    z: 0
+  jitterStrength: 0
+  showSpawnBounds: 1
+  spawnRegions:
+  - centre: {x: 4, y: -1.42, z: 0}
+    size: 7
+    debugDisplayCol: {r: 0, g: 0.2243948, b: 1, a: 0}
+    particleType: 0
+    friction: 0
+    restitution: 0
+    viscosity: 0
+    pressure: 0
+  - centre: {x: -4, y: -1.42, z: 0}
+    size: 7
+    debugDisplayCol: {r: 1, g: 0.8477064, b: 0.2028302, a: 0}
+    particleType: 1
+    friction: 0
+    restitution: 0
+    viscosity: 0
+    pressure: 0
+  debug_num_particles: 410758
+  debug_spawn_volume: 686
+--- !u!114 &1615072073
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1615072071}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bfb77a94d8b4bd945b0d94bed628ab1c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gravity: -9.81
+  iterationsPerFrame: 2
+  boundsSize: {x: 10, y: 10, z: 10}
+  smoothingRadius: 0.2
+  targetDensity: 630
+  pressureMultiplier: 288
+  particleRadius: 0.1
+  stackingDistance: 0.2
+  computeShader: {fileID: 7200000, guid: 550677a319fe1c646a18da7bd0dda1bb, type: 3}
+  spawner: {fileID: 1615072072}
+--- !u!4 &1615072074
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1615072071}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1949237117
 GameObject:
   m_ObjectHideFlags: 0
@@ -506,13 +488,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1949237117}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0.28138202, w: 0.9595958}
-  m_LocalPosition: {x: 0.98, y: -1.1, z: 0}
-  m_LocalScale: {x: 1, y: 8.527255, z: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 10, z: 10}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: -32.685}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &1949237119
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -589,6 +571,6 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 811702641}
-  - {fileID: 271053318}
   - {fileID: 128587421}
   - {fileID: 1949237118}
+  - {fileID: 1615072074}

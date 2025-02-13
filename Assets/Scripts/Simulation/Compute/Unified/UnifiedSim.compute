@@ -1,0 +1,182 @@
+#pragma kernel ExternalForces
+#pragma kernel UpdateSpatialHash
+#pragma kernel CalculateForces
+#pragma kernel UpdatePositions
+
+#include "UnifiedParticle.hlsl"
+#include "UnifiedMaths.hlsl"
+
+// Common buffers and parameters
+RWStructuredBuffer<UnifiedParticle> Particles;
+RWStructuredBuffer<uint> SpatialLookup;
+RWStructuredBuffer<uint> SpatialOffsets;
+RWStructuredBuffer<float3> Forces;
+
+// Common parameters
+uint _NumParticles;
+float _DeltaTime;
+float _Gravity;
+float _SmoothingRadius;
+float _TargetDensity;
+float _PressureMultiplier;
+float3 _BoundsSize;
+float3 _BoundsCenter;
+float _ParticleRadius;
+float _StackingDistance;
+uint _MaxParticlesPerCell;
+uint _SpatialHashSize;
+
+// Spatial hashing functions
+uint Hash(uint value)
+{
+    value = (value ^ 61) ^ (value >> 16);
+    value *= 9;
+    value = value ^ (value >> 4);
+    value *= 0x27d4eb2d;
+    value = value ^ (value >> 15);
+    return value;
+}
+
+int3 GetCell3D(float3 position, float cellSize)
+{
+    return int3(floor(position / cellSize));
+}
+
+uint GetCell1D(float3 position, float cellSize)
+{
+    int3 cell3D = GetCell3D(position, cellSize);
+    uint hash = Hash((uint)(cell3D.x * 73856093) ^ (uint)(cell3D.y * 19349663) ^ (uint)(cell3D.z * 83492791));
+    return hash % _SpatialHashSize;
+}
+
+uint GetNeighbours(float3 position, uint particleIndex, out UnifiedParticle neighbours[64], uint maxNeighbours)
+{
+    uint numNeighbours = 0;
+    int3 originCell = GetCell3D(position, _SmoothingRadius);
+    float sqrRadius = _SmoothingRadius * _SmoothingRadius;
+
+    for (int x = -1; x <= 1; x++)
+    {
+        for (int y = -1; y <= 1; y++)
+        {
+            for (int z = -1; z <= 1; z++)
+            {
+                int3 offsetCell = originCell + int3(x, y, z);
+                uint cellHash = GetCell1D(offsetCell * _SmoothingRadius, _SmoothingRadius);
+
+                uint startIndex = SpatialOffsets[cellHash];
+                uint endIndex = SpatialOffsets[cellHash + 1];
+
+                for (uint i = startIndex; i < endIndex && numNeighbours < maxNeighbours; i++)
+                {
+                    if (i >= _NumParticles) continue;
+                    UnifiedParticle other = Particles[i];
+
+                    float3 offset = other.position - position;
+                    float sqrDist = dot(offset, offset);
+
+                    if (sqrDist < sqrRadius && i != particleIndex)
+                    {
+                        neighbours[numNeighbours] = other;
+                        numNeighbours++;
+                    }
+                }
+            }
+        }
+    }
+
+    return numNeighbours;
+}
+
+[numthreads(256,1,1)]
+void ExternalForces(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _NumParticles) return;
+
+    Forces[id.x] = float3(0, _Gravity, 0);
+}
+
+[numthreads(256,1,1)]
+void UpdateSpatialHash(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _NumParticles) return;
+
+    UnifiedParticle particle = Particles[id.x];
+    uint cellIndex = GetCell1D(particle.position, _SmoothingRadius);
+    SpatialLookup[id.x] = cellIndex;
+}
+
+[numthreads(256,1,1)]
+void CalculateForces(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _NumParticles) return;
+
+    UnifiedParticle particle = Particles[id.x];
+    float3 force = Forces[id.x];
+
+    // Get neighbouring particles using spatial hash
+    UnifiedParticle neighbours[64];
+    uint numNeighbours = GetNeighbours(particle.position, id.x, neighbours, 64);
+
+    if(particle.type == 0) // Fluid
+    {
+        float2 densities = CalculateDensities(particle, neighbours, numNeighbours, _SmoothingRadius);
+        particle.density = densities; // Store density for pressure calculation
+        Particles[id.x] = particle;  // Update particle density
+
+        float3 pressureForce = CalculatePressureForce(particle, neighbours, numNeighbours, _SmoothingRadius, densities.x, _TargetDensity, _PressureMultiplier);
+        float3 viscosityForce = CalculateViscosityForce(particle, neighbours, numNeighbours, _SmoothingRadius, particle.properties.z);
+
+        force += pressureForce + viscosityForce;
+    }
+    else // Sand
+    {
+        float3 contactForce = CalculateContactForce(particle, neighbours, numNeighbours, _ParticleRadius, _StackingDistance, particle.properties.x);
+        float3 frictionForce = CalculateFrictionForce(particle, particle.properties.x);
+
+        force += contactForce + frictionForce;
+    }
+
+    Forces[id.x] = force;
+}
+
+[numthreads(256,1,1)]
+void UpdatePositions(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _NumParticles) return;
+
+    UnifiedParticle particle = Particles[id.x];
+    float3 force = Forces[id.x];
+
+    // Update velocity and position
+    particle.velocity += force * _DeltaTime;
+    particle.position += particle.velocity * _DeltaTime;
+
+    // Handle collisions with bounds
+    float3 halfSize = _BoundsSize * 0.5;
+    float3 minBounds = _BoundsCenter - halfSize;
+    float3 maxBounds = _BoundsCenter + halfSize;
+
+    if (particle.type == 0) // Fluid
+    {
+        // Simple bounce for fluid
+        if (particle.position.x < minBounds.x) { particle.position.x = minBounds.x; particle.velocity.x *= -0.5; }
+        if (particle.position.x > maxBounds.x) { particle.position.x = maxBounds.x; particle.velocity.x *= -0.5; }
+        if (particle.position.y < minBounds.y) { particle.position.y = minBounds.y; particle.velocity.y *= -0.5; }
+        if (particle.position.y > maxBounds.y) { particle.position.y = maxBounds.y; particle.velocity.y *= -0.5; }
+        if (particle.position.z < minBounds.z) { particle.position.z = minBounds.z; particle.velocity.z *= -0.5; }
+        if (particle.position.z > maxBounds.z) { particle.position.z = maxBounds.z; particle.velocity.z *= -0.5; }
+    }
+    else // Sand
+    {
+        // Sand uses restitution coefficient for bounces
+        if (particle.position.x < minBounds.x) { particle.position.x = minBounds.x; particle.velocity.x *= -particle.properties.y; }
+        if (particle.position.x > maxBounds.x) { particle.position.x = maxBounds.x; particle.velocity.x *= -particle.properties.y; }
+        if (particle.position.y < minBounds.y) { particle.position.y = minBounds.y; particle.velocity.y *= -particle.properties.y; }
+        if (particle.position.y > maxBounds.y) { particle.position.y = maxBounds.y; particle.velocity.y *= -particle.properties.y; }
+        if (particle.position.z < minBounds.z) { particle.position.z = minBounds.z; particle.velocity.z *= -particle.properties.y; }
+        if (particle.position.z > maxBounds.z) { particle.position.z = maxBounds.z; particle.velocity.z *= -particle.properties.y; }
+    }
+
+    Particles[id.x] = particle;
+}

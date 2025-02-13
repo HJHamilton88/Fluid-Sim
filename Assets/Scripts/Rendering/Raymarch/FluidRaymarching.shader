@@ -1,4 +1,4 @@
-Shader "Fluid/Raymarching"
+Shader "Fluid/FluidRaymarching"
 {
     Properties
     {
@@ -45,8 +45,6 @@ Shader "Fluid/Raymarching"
             const float indexOfRefraction;
             const int numRefractions;
             const float3 extinctionCoeff;
-
-            const float3 testParams;
             const float3 boundsSize;
             const float volumeValueOffset;
             const float densityMultiplier;

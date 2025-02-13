@@ -63,18 +63,18 @@ namespace Seb.Fluid.Simulation
 
 		// Kernel IDs
 		const int externalForcesKernel = 0;
-		const int spatialHashKernel = 1;
+		public const int spatialHashKernel = 1;
 		const int reorderKernel = 2;
 		const int reorderCopybackKernel = 3;
-		const int densityKernel = 4;
-		const int pressureKernel = 5;
-		const int viscosityKernel = 6;
-		const int updatePositionsKernel = 7;
+		public const int densityKernel = 4;
+		public const int pressureKernel = 5;
+		public const int viscosityKernel = 6;
+		public const int updatePositionsKernel = 7;
 		const int renderKernel = 8;
 		const int foamUpdateKernel = 9;
 		const int foamReorderCopyBackKernel = 10;
 
-		SpatialHash spatialHash;
+		public SpatialHash spatialHash;
 
 		// State
 		bool isPaused;
@@ -83,9 +83,9 @@ namespace Seb.Fluid.Simulation
 		float simTimer;
 		bool inSlowMode;
 		Spawner3D.SpawnData spawnData;
-		Dictionary<ComputeBuffer, string> bufferNameLookup;
+		public Dictionary<ComputeBuffer, string> bufferNameLookup;
 
-		void Start()
+		protected virtual void Start()
 		{
 			Debug.Log("Controls: Space = Play/Pause, Q = SlowMode, R = Reset");
 			isPaused = false;
@@ -93,13 +93,13 @@ namespace Seb.Fluid.Simulation
 			Initialize();
 		}
 
-		void Initialize()
+		protected virtual void Initialize()
 		{
 			spawnData = spawner.GetSpawnData();
 			int numParticles = spawnData.points.Length;
 
 			spatialHash = new SpatialHash(numParticles);
-			
+
 			// Create buffers
 			positionBuffer = CreateStructuredBuffer<float3>(numParticles);
 			predictedPositionsBuffer = CreateStructuredBuffer<float3>(numParticles);
@@ -262,7 +262,7 @@ namespace Seb.Fluid.Simulation
 			SimulationInitCompleted?.Invoke(this);
 		}
 
-		void Update()
+		protected virtual void Update()
 		{
 			// Run simulation
 			if (!isPaused)
@@ -281,7 +281,7 @@ namespace Seb.Fluid.Simulation
 			HandleInput();
 		}
 
-		void RunSimulationFrame(float frameDeltaTime)
+		protected virtual void RunSimulationFrame(float frameDeltaTime)
 		{
 			float subStepDeltaTime = frameDeltaTime / iterationsPerFrame;
 			UpdateSettings(subStepDeltaTime, frameDeltaTime);
@@ -307,7 +307,7 @@ namespace Seb.Fluid.Simulation
 			}
 		}
 
-		void UpdateDensityMap()
+		public void UpdateDensityMap()
 		{
 			float maxAxis = Mathf.Max(transform.localScale.x, transform.localScale.y, transform.localScale.z);
 			int w = Mathf.RoundToInt(transform.localScale.x / maxAxis * densityTextureRes);
@@ -326,7 +326,7 @@ namespace Seb.Fluid.Simulation
 
 			Dispatch(compute, positionBuffer.count, kernelIndex: spatialHashKernel);
 			spatialHash.Run();
-			
+
 			Dispatch(compute, positionBuffer.count, kernelIndex: reorderKernel);
 			Dispatch(compute, positionBuffer.count, kernelIndex: reorderCopybackKernel);
 
@@ -434,7 +434,7 @@ namespace Seb.Fluid.Simulation
 
 		private float ActiveTimeScale => inSlowMode ? slowTimeScale : normalTimeScale;
 
-		void OnDestroy()
+		protected virtual void OnDestroy()
 		{
 			foreach (var kvp in bufferNameLookup)
 			{

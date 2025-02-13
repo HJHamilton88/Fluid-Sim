@@ -1,0 +1,150 @@
+#pragma kernel GrainPhysics
+
+RWStructuredBuffer<float3> Positions;
+RWStructuredBuffer<float3> Velocities;
+RWStructuredBuffer<float3> PredictedPositions;
+RWStructuredBuffer<float> ObjectData;
+RWStructuredBuffer<uint> CellOffsets;
+RWStructuredBuffer<uint> CellCounts;
+
+// Parameters
+int numParticles;
+int numObjects;
+float deltaTime;
+float particleRadius;
+float stackingDistance;
+float friction;
+float restitution;
+float gravity;
+float objectDisplacementForce;
+float objectFriction;
+float3 boundsSize;
+float3 boundsCenter;
+uint3 gridSize;
+
+static const float MAX_SPEED = 2.0;
+static const float GROUND_Y = -5.0;
+static const int MAX_PARTICLES_PER_CELL = 64;
+
+// Hash function for spatial grid
+uint Hash(uint3 gridPos) {
+    return gridPos.x + gridSize.x * (gridPos.y + gridSize.y * gridPos.z);
+}
+
+uint3 GetGridPos(float3 pos) {
+    float3 normalized = (pos - (boundsCenter - boundsSize * 0.5)) / boundsSize;
+    return uint3(normalized * gridSize);
+}
+
+float3 GetObjectData(int objectIndex, int offset)
+{
+    int baseIndex = objectIndex * 19;
+    return float3(
+        ObjectData[baseIndex + offset],
+        ObjectData[baseIndex + offset + 1],
+        ObjectData[baseIndex + offset + 2]
+    );
+}
+
+float3 CalculateObjectCollision(float3 pos, float3 vel, float3 objectPos, float3 objectScale)
+{
+    float3 toParticle = pos - objectPos;
+    float3 scaledDist = abs(toParticle) / (objectScale * 0.5);
+    float maxDist = max(scaledDist.x, max(scaledDist.y, scaledDist.z));
+
+    if (maxDist < 1.0)
+    {
+        float3 normal = normalize(toParticle);
+        float penetration = (1.0 - maxDist) * particleRadius;
+
+        // Collision response
+        float3 reflection = reflect(vel, normal);
+        float3 frictionForce = -normalize(vel - dot(vel, normal) * normal) * objectFriction;
+
+        return normal * (penetration / deltaTime) * restitution + frictionForce;
+    }
+    return float3(0, 0, 0);
+}
+
+float3 CalculateParticleCollision(float3 pos1, float3 vel1, float3 pos2, float3 vel2)
+{
+    float3 delta = pos1 - pos2;
+    float dist = length(delta);
+
+    if (dist < stackingDistance && dist > 0.0001)
+    {
+        float3 normal = delta / dist;
+        float overlap = stackingDistance - dist;
+
+        // Relative velocity
+        float3 relativeVel = vel1 - vel2;
+
+        // Normal force (prevent penetration)
+        float3 normalForce = normal * (overlap / deltaTime);
+
+        // Friction force (tangential to contact)
+        float3 tangentialVel = relativeVel - dot(relativeVel, normal) * normal;
+        float3 frictionForce = -normalize(tangentialVel + float3(0.0001, 0, 0)) * length(tangentialVel) * friction;
+
+        return normalForce + frictionForce;
+    }
+    return float3(0, 0, 0);
+}
+
+[numthreads(256,1,1)]
+void GrainPhysics(uint3 id : SV_DispatchThreadID)
+{
+    uint index = id.x;
+    if (index >= (uint)numParticles) return;
+
+    float3 pos = Positions[index];
+    float3 vel = Velocities[index];
+    float3 force = float3(0, -gravity, 0); // Base gravity force
+
+    // Get grid position for current particle
+    uint3 gridPos = GetGridPos(pos);
+
+    // Check neighboring cells for particle collisions
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            for (int z = -1; z <= 1; z++) {
+                uint3 neighborPos = gridPos + uint3(x, y, z);
+                if (neighborPos.x >= gridSize.x || neighborPos.y >= gridSize.y || neighborPos.z >= gridSize.z) continue;
+
+                uint cellIndex = Hash(neighborPos);
+                uint startIndex = CellOffsets[cellIndex];
+                uint endIndex = startIndex + CellCounts[cellIndex];
+
+                for (uint i = startIndex; i < endIndex; i++) {
+                    if (i == index) continue;
+
+                    float3 otherPos = Positions[i];
+                    float3 otherVel = Velocities[i];
+                    force += CalculateParticleCollision(pos, vel, otherPos, otherVel);
+                }
+            }
+        }
+    }
+
+    // Object collisions
+    for (int i = 0; i < numObjects; i++)
+    {
+        float3 objectPos = GetObjectData(i, 12);
+        float3 objectScale = GetObjectData(i, 0);
+        force += CalculateObjectCollision(pos, vel, objectPos, objectScale);
+    }
+
+    // Update velocity and position
+    vel += force * deltaTime;
+
+    // Speed limit
+    float speed = length(vel);
+    if (speed > MAX_SPEED)
+    {
+        vel = (vel / speed) * MAX_SPEED;
+    }
+
+    // Write back
+    Velocities[index] = vel;
+    PredictedPositions[index] = pos + vel * deltaTime;
+}
